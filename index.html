@@ -1,1 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Magang (Supabase)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid white;
+            width: 20px; height: 20px; animation: spin 1s linear infinite; display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800">
 
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-extrabold text-blue-700">Jurnal Magang (Supabase)</h1>
+            <p class="text-gray-500">Setup Database: OK ✅ | Storage: OK ✅</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="bg-white p-6 rounded-xl shadow border border-gray-200 h-fit">
+                <h2 class="text-xl font-bold mb-4 text-blue-700">📝 Input Laporan</h2>
+                <form id="formLaporan" class="space-y-4">
+                    <input type="date" id="tanggal" required class="w-full border p-2 rounded">
+                    <input type="text" id="pembimbing" placeholder="Nama Pembimbing" required class="w-full border p-2 rounded">
+                    <input type="text" id="judul" placeholder="Judul Pekerjaan" required class="w-full border p-2 rounded">
+                    <textarea id="deskripsi" rows="3" placeholder="Deskripsi..." required class="w-full border p-2 rounded"></textarea>
+                    
+                    <div class="space-y-2">
+                        <label class="block text-sm font-bold">Foto:</label>
+                        <input type="file" id="foto" accept="image/*" required class="w-full text-sm">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-bold">File Laporan:</label>
+                        <input type="file" id="laporan" required class="w-full text-sm">
+                    </div>
+
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 flex justify-center gap-2">
+                        <span id="btnText">Simpan</span>
+                        <div id="loadingSpinner" class="spinner"></div>
+                    </button>
+                </form>
+            </div>
+
+            <div class="lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Riwayat Laporan</h2>
+                    <button onclick="loadData()" class="text-blue-600 font-bold text-sm">🔄 Refresh Data</button>
+                </div>
+                <div id="cardContainer" class="grid grid-cols-1 gap-4">
+                    <p class="text-center text-gray-500 py-10">Memuat data...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- KONFIGURASI SUPABASE KAMU ---
+        const SUPABASE_URL = 'https://cihvhbfgcmxemokotrma.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpaHZoYmZnY214ZW1va290cm1hIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzY5NjAwMCwiZXhwIjoyMDgzMjcyMDAwfQ.TQwFLe-l2OzuIRfdmn1URUMgAXs-80UtKZtuYxDFSJo';
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const container = document.getElementById('cardContainer');
+        const form = document.getElementById('formLaporan');
+        const spinner = document.getElementById('loadingSpinner');
+        const btnText = document.getElementById('btnText');
+
+        // 1. FUNGSI LOAD DATA
+        async function loadData() {
+            container.innerHTML = '<p class="text-center py-10">Mengambil data...</p>';
+            
+            // Ambil data dari tabel 'laporan_magang'
+            const { data, error } = await supabase
+                .from('laporan_magang')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                container.innerHTML = `<div class="bg-red-100 text-red-700 p-4 rounded">Error: ${error.message}</div>`;
+                return;
+            }
+
+            if (data.length === 0) {
+                container.innerHTML = `<div class="bg-gray-100 text-gray-500 p-10 text-center rounded">Belum ada data. Silakan input dulu.</div>`;
+                return;
+            }
+
+            let html = '';
+            data.forEach(item => {
+                const date = new Date(item.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                html += `
+                <div class="bg-white p-4 rounded-xl shadow flex flex-col sm:flex-row gap-4 border">
+                    <img src="${item.foto_url}" class="w-full sm:w-32 h-32 object-cover rounded-lg bg-gray-200">
+                    <div class="flex-1">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-bold text-lg text-gray-800">${item.judul}</h3>
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">${date}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1">Pembimbing: ${item.pembimbing}</p>
+                        <p class="text-sm text-gray-700 mt-2 italic bg-gray-50 p-2 rounded">"${item.deskripsi}"</p>
+                        <a href="${item.laporan_url}" target="_blank" class="inline-block mt-3 text-sm text-green-600 font-bold hover:underline">Download Laporan ⬇</a>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        // 2. FUNGSI UPLOAD & SIMPAN
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            btnText.textContent = 'Proses...';
+            spinner.style.display = 'inline-block';
+            
+            try {
+                const fotoFile = document.getElementById('foto').files[0];
+                const docFile = document.getElementById('laporan').files[0];
+
+                // Upload Foto
+                const namaFoto = `foto_${Date.now()}_${fotoFile.name.replace(/\s/g, '')}`;
+                const { error: errFoto } = await supabase.storage.from('berkas').upload(namaFoto, fotoFile);
+                if (errFoto) throw new Error("Gagal upload foto: " + errFoto.message);
+                const urlFoto = supabase.storage.from('berkas').getPublicUrl(namaFoto).data.publicUrl;
+
+                // Upload Dokumen
+                const namaDoc = `doc_${Date.now()}_${docFile.name.replace(/\s/g, '')}`;
+                const { error: errDoc } = await supabase.storage.from('berkas').upload(namaDoc, docFile);
+                if (errDoc) throw new Error("Gagal upload dokumen: " + errDoc.message);
+                const urlDoc = supabase.storage.from('berkas').getPublicUrl(namaDoc).data.publicUrl;
+
+                // Simpan ke Database
+                const { error: errDb } = await supabase.from('laporan_magang').insert({
+                    tanggal: document.getElementById('tanggal').value,
+                    pembimbing: document.getElementById('pembimbing').value,
+                    judul: document.getElementById('judul').value,
+                    deskripsi: document.getElementById('deskripsi').value,
+                    foto_url: urlFoto,
+                    laporan_url: urlDoc
+                });
+                
+                if (errDb) throw new Error("Gagal simpan data: " + errDb.message);
+
+                alert("Berhasil!");
+                form.reset();
+                loadData();
+
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                btnText.textContent = 'Simpan';
+                spinner.style.display = 'none';
+            }
+        });
+
+        loadData();
+    </script>
+</body>
+</html>
